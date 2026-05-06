@@ -78,6 +78,9 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Generated analysis outputs
+results/
+
 # IPython
 profile_default/
 ipython_config.py

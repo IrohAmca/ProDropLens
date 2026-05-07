@@ -7,11 +7,14 @@ results/ remain unchanged.
 
 from __future__ import annotations
 
+import argparse
+import gc
 import sys
 from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
+import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -19,7 +22,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from core.dataset import get_pilot  # noqa: E402
 from core.logit_lens import (  # noqa: E402
+    MODEL_NAME,
     build_person_form_specs,
+    load_hf_lens_model,
     load_lens_model,
     run_person_form_lens,
     summarize_person_margin_transitions,
@@ -37,6 +42,125 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 PHASE0_DIR = RESULTS_DIR / "phase0"
 PHASE1_DIR = RESULTS_DIR / "phase1"
 FIGURES_DIR = PHASE1_DIR / "figures"
+DEFAULT_MODEL_COMPARISON_MODELS = [
+    "ytu-ce-cosmos/turkish-gpt2-medium",
+    "ytu-ce-cosmos/turkish-gpt2-large",
+]
+MODEL_ALIASES = {
+    "small": "ytu-ce-cosmos/turkish-gpt2",
+    "base": "ytu-ce-cosmos/turkish-gpt2",
+    "medium": "ytu-ce-cosmos/turkish-gpt2-medium",
+    "large": "ytu-ce-cosmos/turkish-gpt2-large",
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run Phase 1 context, control, and model-comparison experiments.",
+    )
+    parser.add_argument(
+        "--model-name",
+        default=MODEL_NAME,
+        help="Baseline HF model name for the main Phase 1 run.",
+    )
+    parser.add_argument(
+        "--dtype",
+        default="float32",
+        help="Torch dtype for the baseline model, e.g. float32 or float16.",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="Device passed to TransformerLens. Defaults to cuda when available.",
+    )
+    parser.add_argument(
+        "--comparison-models",
+        nargs="*",
+        default=DEFAULT_MODEL_COMPARISON_MODELS,
+        help=(
+            "Additional HF model names or aliases to compare against the baseline. "
+            "Use 'none' to skip. Aliases: small, medium, large."
+        ),
+    )
+    parser.add_argument(
+        "--comparison-dtype",
+        default="float16",
+        help="Torch dtype for comparison models.",
+    )
+    parser.add_argument(
+        "--skip-model-comparison",
+        action="store_true",
+        help="Run only the original Phase 1 context and control experiments.",
+    )
+    return parser.parse_args()
+
+
+def normalize_model_name(model_name: str) -> str:
+    """Resolve short model aliases to HF model names."""
+    return MODEL_ALIASES.get(model_name, model_name)
+
+
+def normalize_comparison_models(model_names: list[str], baseline_model_name: str) -> list[str]:
+    """Return de-duplicated comparison models, excluding the baseline."""
+    if any(name.lower() == "none" for name in model_names):
+        return []
+
+    normalized: list[str] = []
+    seen = {baseline_model_name}
+    for name in model_names:
+        resolved = normalize_model_name(name)
+        if resolved in seen:
+            continue
+        normalized.append(resolved)
+        seen.add(resolved)
+    return normalized
+
+
+def model_label(model_name: str) -> str:
+    """Return a compact model label for tables and plots."""
+    return model_name.rsplit("/", maxsplit=1)[-1]
+
+
+def model_metadata(model, model_name: str) -> dict:
+    """Collect stable model metadata used in comparison tables."""
+    if hasattr(model, "cfg"):
+        n_layers = int(model.cfg.n_layers)
+        d_model = int(model.cfg.d_model)
+        n_heads = int(model.cfg.n_heads)
+    else:
+        n_layers = int(model.config.n_layer)
+        d_model = int(model.config.n_embd)
+        n_heads = int(model.config.n_head)
+    return {
+        "model_label": model_label(model_name),
+        "model_name": model_name,
+        "model_n_layers": n_layers,
+        "model_d_model": d_model,
+        "model_n_heads": n_heads,
+        "model_n_params": int(sum(param.numel() for param in model.parameters())),
+    }
+
+
+def add_model_metadata(df: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+    """Attach model metadata columns to a result table."""
+    out = df.copy()
+    for key, value in metadata.items():
+        out[key] = value
+    front_cols = list(metadata)
+    other_cols = [col for col in out.columns if col not in front_cols]
+    return out[front_cols + other_cols]
+
+
+def release_model(model) -> None:
+    """Drop a model reference and return cached GPU memory to the allocator."""
+    try:
+        model.to("cpu")
+    except Exception:
+        pass
+    del model
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def write_table(df: pd.DataFrame, path: Path) -> None:
@@ -92,6 +216,10 @@ def prepare_phase0_reference() -> dict[str, pd.DataFrame]:
     PHASE0_DIR.mkdir(parents=True, exist_ok=True)
     verb_path = RESULTS_DIR / "phase0_verb_classification.csv"
     position_path = RESULTS_DIR / "phase0_position_reference.csv"
+    if not verb_path.exists():
+        verb_path = PHASE0_DIR / "phase0_verb_classification.csv"
+    if not position_path.exists():
+        position_path = PHASE0_DIR / "phase0_position_reference.csv"
 
     if not verb_path.exists() or not position_path.exists():
         return {}
@@ -251,12 +379,304 @@ def summarize_sensitivity_by_condition(sensitivity_df: pd.DataFrame) -> pd.DataF
     return pd.DataFrame(rows).sort_values("condition").reset_index(drop=True)
 
 
-def run() -> None:
+def build_model_comparison_tables(
+    metadata: dict,
+    context_specs: pd.DataFrame,
+    context_scores: pd.DataFrame,
+    context_margins: pd.DataFrame,
+    context_summary: pd.DataFrame,
+    condition_summary: pd.DataFrame,
+    final_selection: pd.DataFrame,
+    control_specs: pd.DataFrame,
+    control_scores: pd.DataFrame,
+    control_margins: pd.DataFrame,
+    control_summary: pd.DataFrame,
+    control_condition_summary: pd.DataFrame,
+    control_final_selection: pd.DataFrame,
+    all_sensitivity: pd.DataFrame,
+    all_sensitivity_summary: pd.DataFrame,
+) -> dict[str, pd.DataFrame]:
+    """Build the normalized tables used for cross-model comparison."""
+    combined_specs = pd.concat([context_specs, control_specs], ignore_index=True)
+    combined_scores = pd.concat([context_scores, control_scores], ignore_index=True)
+    combined_margins = pd.concat([context_margins, control_margins], ignore_index=True)
+    combined_transitions = pd.concat([context_summary, control_summary], ignore_index=True)
+    combined_condition_summary = pd.concat(
+        [condition_summary, control_condition_summary],
+        ignore_index=True,
+    )
+    combined_final_selection = pd.concat(
+        [final_selection, control_final_selection],
+        ignore_index=True,
+    )
+    tokenization_summary = condition_tokenization_summary(combined_specs)
+
+    return {
+        "specs": add_model_metadata(combined_specs, metadata),
+        "scores": add_model_metadata(combined_scores, metadata),
+        "margins": add_model_metadata(combined_margins, metadata),
+        "transitions": add_model_metadata(combined_transitions, metadata),
+        "condition_summary": add_model_metadata(combined_condition_summary, metadata),
+        "final_selection": add_model_metadata(combined_final_selection, metadata),
+        "tokenization_summary": add_model_metadata(tokenization_summary, metadata),
+        "sensitivity": add_model_metadata(all_sensitivity, metadata),
+        "sensitivity_summary": add_model_metadata(all_sensitivity_summary, metadata),
+    }
+
+
+def run_context_control_bundle(model, tokenizer) -> dict[str, pd.DataFrame]:
+    """Run Phase 1 context and control experiments for one loaded model."""
+    context_specs = build_phase1_context_person_specs(tokenizer)
+    context_scores = run_person_form_lens(model, tokenizer, context_specs)
+    context_margins = summarize_person_margins(context_scores)
+    context_summary = summarize_person_margin_transitions(context_margins)
+
+    context_summary = attach_case_metadata(context_summary, context_specs)
+    context_margins = attach_condition_metadata(context_margins, context_specs)
+    context_scores = attach_condition_metadata(context_scores, context_specs)
+
+    condition_summary = summarize_context_conditions(context_summary)
+    final_selection = final_selection_table(context_margins)
+    context_tokenization_summary = condition_tokenization_summary(context_specs)
+
+    control_specs = build_phase1_control_person_specs(tokenizer)
+    control_scores = run_person_form_lens(model, tokenizer, control_specs)
+    control_margins = summarize_person_margins(control_scores)
+    control_summary = summarize_person_margin_transitions(control_margins)
+    control_summary = attach_case_metadata(control_summary, control_specs)
+    control_margins = attach_condition_metadata(control_margins, control_specs)
+    control_scores = attach_condition_metadata(control_scores, control_specs)
+    control_condition_summary = summarize_context_conditions(control_summary)
+    control_final_selection = final_selection_table(control_margins)
+    control_tokenization_summary = condition_tokenization_summary(control_specs)
+    control_sensitivity = summarize_sum_vs_mean_sensitivity(control_margins)
+    control_sensitivity_summary = summarize_sensitivity_by_condition(control_sensitivity)
+
+    all_margins_for_sensitivity = pd.concat([context_margins, control_margins], ignore_index=True)
+    all_sensitivity = summarize_sum_vs_mean_sensitivity(all_margins_for_sensitivity)
+    all_sensitivity_summary = summarize_sensitivity_by_condition(all_sensitivity)
+
+    return {
+        "context_specs": context_specs,
+        "context_scores": context_scores,
+        "context_margins": context_margins,
+        "context_summary": context_summary,
+        "condition_summary": condition_summary,
+        "final_selection": final_selection,
+        "context_tokenization_summary": context_tokenization_summary,
+        "control_specs": control_specs,
+        "control_scores": control_scores,
+        "control_margins": control_margins,
+        "control_summary": control_summary,
+        "control_condition_summary": control_condition_summary,
+        "control_final_selection": control_final_selection,
+        "control_tokenization_summary": control_tokenization_summary,
+        "control_sensitivity": control_sensitivity,
+        "control_sensitivity_summary": control_sensitivity_summary,
+        "all_sensitivity": all_sensitivity,
+        "all_sensitivity_summary": all_sensitivity_summary,
+    }
+
+
+def concat_model_tables(model_tables: list[dict[str, pd.DataFrame]]) -> dict[str, pd.DataFrame]:
+    """Concatenate per-model comparison tables by table name."""
+    if not model_tables:
+        return {}
+    return {
+        key: pd.concat([tables[key] for tables in model_tables], ignore_index=True)
+        for key in model_tables[0]
+    }
+
+
+def summarize_model_delta_vs_baseline(
+    condition_summary: pd.DataFrame,
+    baseline_label: str,
+) -> pd.DataFrame:
+    """Compare each non-baseline model's aggregate metrics against baseline."""
+    if condition_summary.empty:
+        return pd.DataFrame()
+    baseline = condition_summary[
+        condition_summary["model_label"] == baseline_label
+    ].copy()
+    others = condition_summary[
+        condition_summary["model_label"] != baseline_label
+    ].copy()
+    if baseline.empty or others.empty:
+        return pd.DataFrame()
+
+    baseline = baseline[[
+        "condition", "final_correct_rate", "mean_final_margin",
+        "median_final_margin", "median_first_positive_layer",
+    ]].rename(columns={
+        "final_correct_rate": "baseline_final_correct_rate",
+        "mean_final_margin": "baseline_mean_final_margin",
+        "median_final_margin": "baseline_median_final_margin",
+        "median_first_positive_layer": "baseline_median_first_positive_layer",
+    })
+
+    merged = others.merge(baseline, on="condition", how="left")
+    merged["delta_final_correct_rate"] = (
+        merged["final_correct_rate"] - merged["baseline_final_correct_rate"]
+    )
+    merged["delta_mean_final_margin"] = (
+        merged["mean_final_margin"] - merged["baseline_mean_final_margin"]
+    )
+    merged["delta_median_final_margin"] = (
+        merged["median_final_margin"] - merged["baseline_median_final_margin"]
+    )
+    merged["delta_median_first_positive_layer"] = (
+        merged["median_first_positive_layer"] - merged["baseline_median_first_positive_layer"]
+    )
+    return merged[[
+        "model_label", "model_name", "condition",
+        "final_correct_rate", "baseline_final_correct_rate", "delta_final_correct_rate",
+        "mean_final_margin", "baseline_mean_final_margin", "delta_mean_final_margin",
+        "median_final_margin", "baseline_median_final_margin", "delta_median_final_margin",
+        "median_first_positive_layer", "baseline_median_first_positive_layer",
+        "delta_median_first_positive_layer",
+    ]].sort_values(["model_label", "condition"]).reset_index(drop=True)
+
+
+def _format_condition_list(values) -> str:
+    """Format condition names for a compact markdown note."""
+    return ", ".join(f"`{value}`" for value in values)
+
+
+def build_model_comparison_notes(
+    model_tables: dict[str, pd.DataFrame],
+    run_status: pd.DataFrame,
+    baseline_label: str,
+) -> str:
+    """Create a compact interpretation summary from model-comparison tables."""
+    if not model_tables:
+        return "_No completed model-comparison rows._"
+
+    notes: list[str] = []
+    tokenization = model_tables["tokenization_summary"]
+    profile_cols = ["condition", "candidate_type", "count", "mean_candidate_n_tokens"]
+    profiles = {
+        label: group[profile_cols].sort_values(profile_cols).reset_index(drop=True)
+        for label, group in tokenization.groupby("model_label")
+    }
+    baseline_profile = profiles.get(baseline_label)
+    if baseline_profile is not None and len(profiles) > 1:
+        same_profile = all(
+            profile.equals(baseline_profile)
+            for label, profile in profiles.items()
+            if label != baseline_label
+        )
+        if same_profile:
+            notes.append(
+                "- Completed models have the same tokenizer split profile for these Phase 1 candidates; observed changes are model-scale effects, not tokenizer-boundary fixes."
+            )
+
+    delta = model_tables.get("delta_vs_baseline", pd.DataFrame())
+    if not delta.empty:
+        for label, group in delta.groupby("model_label"):
+            improved = group[group["delta_final_correct_rate"] > 0]
+            regressed = group[group["delta_final_correct_rate"] < 0]
+            unchanged = group[group["delta_final_correct_rate"] == 0]
+
+            if not improved.empty:
+                notes.append(
+                    f"- `{label}` improves final correctness in {_format_condition_list(improved['condition'])}."
+                )
+            if not regressed.empty:
+                notes.append(
+                    f"- `{label}` regresses final correctness in {_format_condition_list(regressed['condition'])}."
+                )
+            if not unchanged.empty:
+                stronger = unchanged[unchanged["delta_mean_final_margin"] > 0.25]
+                weaker = unchanged[unchanged["delta_mean_final_margin"] < -0.25]
+                if not stronger.empty:
+                    notes.append(
+                        f"- `{label}` keeps final correctness unchanged but strengthens mean margin in {_format_condition_list(stronger['condition'])}."
+                    )
+                if not weaker.empty:
+                    notes.append(
+                        f"- `{label}` keeps final correctness unchanged but weakens mean margin in {_format_condition_list(weaker['condition'])}."
+                    )
+
+    failed = run_status[run_status["status"] == "failed"]
+    for _, row in failed.iterrows():
+        notes.append(
+            f"- `{row['model_label']}` did not complete on this machine: {row['error']}."
+        )
+
+    return "\n".join(notes) if notes else "_No material model-scale differences were detected._"
+
+
+def run_comparison_model(model_name: str, dtype: str, device: str | None) -> dict[str, pd.DataFrame]:
+    """Load and run one additional model for the Phase 1 comparison."""
+    print(f"Running model comparison for {model_name}")
+    model, tokenizer = load_hf_lens_model(model_name=model_name, device=device, dtype=dtype)
+    try:
+        metadata = model_metadata(model, model_name)
+        outputs = run_context_control_bundle(model, tokenizer)
+        return build_model_comparison_tables(
+            metadata,
+            context_specs=outputs["context_specs"],
+            context_scores=outputs["context_scores"],
+            context_margins=outputs["context_margins"],
+            context_summary=outputs["context_summary"],
+            condition_summary=outputs["condition_summary"],
+            final_selection=outputs["final_selection"],
+            control_specs=outputs["control_specs"],
+            control_scores=outputs["control_scores"],
+            control_margins=outputs["control_margins"],
+            control_summary=outputs["control_summary"],
+            control_condition_summary=outputs["control_condition_summary"],
+            control_final_selection=outputs["control_final_selection"],
+            all_sensitivity=outputs["all_sensitivity"],
+            all_sensitivity_summary=outputs["all_sensitivity_summary"],
+        )
+    finally:
+        release_model(model)
+        model = None
+
+
+def write_model_comparison_tables(model_tables: dict[str, pd.DataFrame]) -> None:
+    """Write cross-model comparison outputs."""
+    if not model_tables:
+        return
+    write_table(model_tables["specs"], PHASE1_DIR / "phase1_model_comparison_person_form_specs.csv")
+    write_table(model_tables["scores"], PHASE1_DIR / "phase1_model_comparison_person_form_scores.csv")
+    write_table(model_tables["margins"], PHASE1_DIR / "phase1_model_comparison_person_margin_layers.csv")
+    write_table(model_tables["transitions"], PHASE1_DIR / "phase1_model_comparison_transition_summary.csv")
+    write_table(model_tables["condition_summary"], PHASE1_DIR / "phase1_model_comparison_condition_summary.csv")
+    write_table(model_tables["final_selection"], PHASE1_DIR / "phase1_model_comparison_final_selection.csv")
+    write_table(model_tables["tokenization_summary"], PHASE1_DIR / "phase1_model_comparison_tokenization_summary.csv")
+    write_table(model_tables["sensitivity"], PHASE1_DIR / "phase1_model_comparison_sum_vs_mean_sensitivity.csv")
+    write_table(
+        model_tables["sensitivity_summary"],
+        PHASE1_DIR / "phase1_model_comparison_sum_vs_mean_sensitivity_summary.csv",
+    )
+    if "delta_vs_baseline" in model_tables:
+        write_table(
+            model_tables["delta_vs_baseline"],
+            PHASE1_DIR / "phase1_model_comparison_delta_vs_baseline.csv",
+        )
+
+
+def run(args: argparse.Namespace) -> None:
     PHASE1_DIR.mkdir(parents=True, exist_ok=True)
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     phase0_refs = prepare_phase0_reference()
 
-    model, tokenizer = load_lens_model()
+    baseline_model_name = normalize_model_name(args.model_name)
+    comparison_model_names = []
+    if not args.skip_model_comparison:
+        comparison_model_names = normalize_comparison_models(
+            args.comparison_models,
+            baseline_model_name,
+        )
+
+    model, tokenizer = load_lens_model(
+        model_name=baseline_model_name,
+        device=args.device,
+        dtype=args.dtype,
+    )
+    baseline_metadata = model_metadata(model, baseline_model_name)
 
     # Keep an archive copy of the existing original-pilot person-margin run.
     original_specs = build_person_form_specs(tokenizer, get_pilot())
@@ -329,6 +749,72 @@ def run() -> None:
     write_table(control_sensitivity_summary, PHASE1_DIR / "phase1_control_sum_vs_mean_sensitivity_summary.csv")
     write_table(all_sensitivity, PHASE1_DIR / "phase1_all_sum_vs_mean_sensitivity.csv")
     write_table(all_sensitivity_summary, PHASE1_DIR / "phase1_all_sum_vs_mean_sensitivity_summary.csv")
+
+    model_comparison_parts: list[dict[str, pd.DataFrame]] = []
+    model_comparison_run_status = []
+    model_comparison_tables: dict[str, pd.DataFrame] = {}
+    if not args.skip_model_comparison:
+        release_model(model)
+        model = None
+
+        for comparison_model_name in [baseline_model_name, *comparison_model_names]:
+            try:
+                comparison_tables = run_comparison_model(
+                    comparison_model_name,
+                    dtype=args.comparison_dtype,
+                    device=args.device,
+                )
+                model_comparison_parts.append(comparison_tables)
+                metadata = {
+                    key: comparison_tables["condition_summary"].iloc[0][key]
+                    for key in baseline_metadata
+                }
+                model_comparison_run_status.append({
+                    **metadata,
+                    "status": "completed",
+                    "error": "",
+                    "dtype": args.comparison_dtype,
+                })
+            except Exception as exc:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                gc.collect()
+                metadata = {
+                    "model_label": model_label(comparison_model_name),
+                    "model_name": comparison_model_name,
+                    "model_n_layers": None,
+                    "model_d_model": None,
+                    "model_n_heads": None,
+                    "model_n_params": None,
+                }
+                model_comparison_run_status.append({
+                    **metadata,
+                    "status": "failed",
+                    "error": repr(exc),
+                    "dtype": args.comparison_dtype,
+                })
+
+        model_comparison_tables = concat_model_tables(model_comparison_parts)
+        if model_comparison_tables:
+            model_comparison_tables["delta_vs_baseline"] = summarize_model_delta_vs_baseline(
+                model_comparison_tables["condition_summary"],
+                model_label(baseline_model_name),
+            )
+            write_model_comparison_tables(model_comparison_tables)
+    else:
+        model_comparison_run_status.append({
+            **baseline_metadata,
+            "status": "skipped",
+            "error": "",
+            "dtype": "",
+        })
+        release_model(model)
+        model = None
+
+    write_table(
+        pd.DataFrame(model_comparison_run_status),
+        PHASE1_DIR / "phase1_model_comparison_run_status.csv",
+    )
 
     fig_paths: dict[str, list[str]] = {}
     margin_fig = px.line(
@@ -429,6 +915,48 @@ def run() -> None:
     sensitivity_fig.update_layout(height=550, xaxis_tickangle=-25)
     fig_paths["sum_vs_mean_sensitivity"] = save_figure(sensitivity_fig, "sum_vs_mean_sensitivity")
 
+    if model_comparison_tables:
+        model_condition_fig = px.bar(
+            model_comparison_tables["condition_summary"],
+            x="condition",
+            y="final_correct_rate",
+            color="model_label",
+            barmode="group",
+            title="Model comparison: final correct rate by condition",
+            labels={
+                "condition": "condition",
+                "final_correct_rate": "final correct rate",
+                "model_label": "model",
+            },
+        )
+        model_condition_fig.update_layout(height=550, xaxis_tickangle=-25)
+        fig_paths["model_comparison_correct_rate"] = save_figure(
+            model_condition_fig,
+            "model_comparison_correct_rate",
+        )
+
+        model_final_fig = px.bar(
+            model_comparison_tables["final_selection"],
+            x="actual_person",
+            y="person_margin_mean",
+            color="model_label",
+            facet_col="condition",
+            facet_col_wrap=1,
+            barmode="group",
+            title="Model comparison: final-layer person margin",
+            labels={
+                "actual_person": "actual person",
+                "person_margin_mean": "final person margin",
+                "model_label": "model",
+            },
+        )
+        model_final_fig.add_hline(y=0, line_dash="dash", line_color="gray")
+        model_final_fig.update_layout(height=1100)
+        fig_paths["model_comparison_final_margin"] = save_figure(
+            model_final_fig,
+            "model_comparison_final_margin",
+        )
+
     original_final = original_margins[original_margins["layer"] == original_margins["layer"].max()].copy()
     original_readme = original_final[[
         "variant", "actual_person", "correct_candidate_form", "person_margin_mean",
@@ -458,6 +986,83 @@ def run() -> None:
         "final_selected_is_correct_mean",
     ]]
     control_sensitivity_readme = all_sensitivity_summary.copy()
+    model_status_readme = pd.DataFrame(model_comparison_run_status)
+    model_comparison_section = ""
+    if model_comparison_tables:
+        model_condition_readme = model_comparison_tables["condition_summary"][[
+            "model_label", "model_n_layers", "condition", "n_cases",
+            "final_correct_rate", "ever_positive_rate", "mean_final_margin",
+            "median_final_margin", "median_first_positive_layer",
+        ]]
+        model_delta_cols = [
+            "model_label", "condition", "final_correct_rate",
+            "baseline_final_correct_rate", "delta_final_correct_rate",
+            "mean_final_margin", "baseline_mean_final_margin", "delta_mean_final_margin",
+        ]
+        model_delta_readme = (
+            model_comparison_tables["delta_vs_baseline"][model_delta_cols]
+            if not model_comparison_tables["delta_vs_baseline"].empty
+            else pd.DataFrame(columns=model_delta_cols)
+        )
+        model_tokenization_readme = model_comparison_tables["tokenization_summary"][[
+            "model_label", "condition", "candidate_type", "count",
+            "mean_candidate_n_tokens",
+        ]]
+        model_sensitivity_readme = model_comparison_tables["sensitivity_summary"][[
+            "model_label", "condition", "mean_final_correct_rate",
+            "sum_final_correct_rate", "selection_agreement_rate",
+            "correctness_agreement_rate",
+        ]]
+        model_notes = build_model_comparison_notes(
+            model_comparison_tables,
+            model_status_readme,
+            model_label(baseline_model_name),
+        )
+        model_comparison_section = f"""
+## Model Comparison
+
+This section reruns the same Phase 1 context and control candidate-form
+experiments across the baseline model and configured upper-model checkpoints.
+It is meant to test whether the Phase 1 person-margin pattern is stable under
+model scale, or whether conclusions are mostly tokenizer/scoring artifacts.
+
+### Model Comparison Run Status
+
+{markdown_table(model_status_readme)}
+
+### Aggregate Results by Model
+
+{markdown_table(model_condition_readme.round(3))}
+
+### Delta vs. Baseline
+
+Positive deltas mean the upper model improved over the baseline for that
+condition; negative deltas mean it regressed.
+
+{markdown_table(model_delta_readme.round(3))}
+
+### Model Comparison Notes
+
+{model_notes}
+
+### Tokenization by Model
+
+{markdown_table(model_tokenization_readme.round(3))}
+
+### Sum vs. Mean Sensitivity by Model
+
+{markdown_table(model_sensitivity_readme.round(3))}
+"""
+    else:
+        model_comparison_section = f"""
+## Model Comparison
+
+Model comparison was skipped for this run.
+
+### Model Comparison Run Status
+
+{markdown_table(model_status_readme)}
+"""
 
     phase0_section = ""
     if phase0_refs:
@@ -497,6 +1102,8 @@ rank from subject/person-conditioned form selection. Existing root-level
    - tokenization-matched verb control
    - mixed-token verb control
    - sum-vs-mean scoring sensitivity
+5. Rerun the same context and control margins on configured upper-model
+   checkpoints for model-scale comparison.
 
 ## Main Conditions
 
@@ -540,6 +1147,8 @@ context.
 - `phase1_control_*.csv`: final control outputs.
 - `phase1_all_sum_vs_mean_sensitivity*.csv`: scoring sensitivity across main
   conditions and controls.
+- `phase1_model_comparison_*.csv`: cross-model context/control outputs,
+  tokenization summaries, and deltas against the baseline model.
 
 ## Figures
 
@@ -586,6 +1195,8 @@ context.
 
 {markdown_table(control_sensitivity_readme.round(3))}
 
+{model_comparison_section}
+
 ## Interpretation
 
 - `ambiguous_prodrop` should not be expected to select every target person:
@@ -602,6 +1213,10 @@ context.
   disappears under `sum`, or only appears for mixed-token forms, the claim is
   tokenization-sensitive and should not be used as direct evidence of an
   abstract subject/person mechanism.
+- Model-scale differences matter only when they change the condition-level
+  correctness or margin pattern while leaving the tokenizer/scoring controls
+  interpretable. If the tokenizer split profile stays the same, improved
+  margins are model-capacity evidence, not a tokenizer fix.
 """
 
     (PHASE1_DIR / "README.md").write_text(readme, encoding="utf-8")
@@ -611,4 +1226,4 @@ context.
 
 
 if __name__ == "__main__":
-    run()
+    run(parse_args())

@@ -1,0 +1,4 @@
+model_label,model_name,model_n_layers,model_d_model,model_n_heads,model_n_params,status,error,dtype
+turkish-gpt2,ytu-ce-cosmos/turkish-gpt2,12.0,768.0,12.0,124439808.0,completed,,float16
+turkish-gpt2-medium,ytu-ce-cosmos/turkish-gpt2-medium,24.0,1024.0,16.0,354823168.0,completed,,float16
+turkish-gpt2-large,ytu-ce-cosmos/turkish-gpt2-large,,,,,failed,OSError('Bu işlemin tamamlanması için disk belleği dosyası çok küçük. (os error 1455)'),float16

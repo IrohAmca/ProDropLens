@@ -14,19 +14,61 @@ from typing import Optional
 import pandas as pd
 import torch
 from transformer_lens import HookedTransformer
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from .dataset import Person, VERB_FORMS
 from .utils import analyze_sentence, classify_verb_tokenization, compare_tokenizations
 
 
 MODEL_NAME = "ytu-ce-cosmos/turkish-gpt2"
-TL_GPT2_BRIDGE_NAME = "gpt2"
+GPT2_TL_BRIDGE_BY_SHAPE = {
+    (12, 768, 12): "gpt2",
+    (24, 1024, 16): "gpt2-medium",
+    (36, 1280, 20): "gpt2-large",
+    (48, 1600, 25): "gpt2-xl",
+}
 
 
 def get_default_device() -> str:
     """Return the preferred local device for model execution."""
     return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def infer_tl_gpt2_bridge_name(model_name: str = MODEL_NAME) -> str:
+    """
+    Return the TransformerLens GPT-2 bridge matching a HF GPT-2 checkpoint.
+
+    The Turkish GPT-2 family uses the same architecture shapes as GPT-2 small,
+    medium, and large, but TransformerLens still needs the corresponding
+    official bridge name when loading larger checkpoints.
+    """
+    config = AutoConfig.from_pretrained(model_name)
+    if config.model_type != "gpt2":
+        raise ValueError(f"Only GPT-2 checkpoints are supported, got {config.model_type!r}")
+
+    shape = (int(config.n_layer), int(config.n_embd), int(config.n_head))
+    try:
+        return GPT2_TL_BRIDGE_BY_SHAPE[shape]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unsupported GPT-2 architecture shape {shape} for {model_name!r}"
+        ) from exc
+
+
+def _torch_dtype_from_name(dtype: str) -> torch.dtype:
+    """Map a string dtype argument to a torch dtype."""
+    dtypes = {
+        "float32": torch.float32,
+        "fp32": torch.float32,
+        "float16": torch.float16,
+        "fp16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "bf16": torch.bfloat16,
+    }
+    try:
+        return dtypes[dtype.lower()]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported dtype {dtype!r}") from exc
 
 
 def load_lens_model(
@@ -43,11 +85,16 @@ def load_lens_model(
     code must tokenize with the returned HF tokenizer, not ``model.to_tokens``.
     """
     device = device or get_default_device()
+    bridge_name = infer_tl_gpt2_bridge_name(model_name)
+    torch_dtype = _torch_dtype_from_name(dtype)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    hf_model = AutoModelForCausalLM.from_pretrained(model_name).eval()
+    hf_model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch_dtype,
+    ).eval()
 
     model = HookedTransformer.from_pretrained(
-        TL_GPT2_BRIDGE_NAME,
+        bridge_name,
         hf_model=hf_model,
         tokenizer=tokenizer,
         device=device,
@@ -60,6 +107,27 @@ def load_lens_model(
     model.tokenizer = tokenizer
     model.eval()
     return model, tokenizer
+
+
+def load_hf_lens_model(
+    model_name: str = MODEL_NAME,
+    device: Optional[str] = None,
+    dtype: str = "float32",
+) -> tuple[AutoModelForCausalLM, object]:
+    """
+    Load a HF causal LM for hidden-state logit-lens scoring.
+
+    This is lighter than converting larger GPT-2 checkpoints through
+    TransformerLens and is sufficient for layer-wise sequence scoring.
+    """
+    device = device or get_default_device()
+    torch_dtype = _torch_dtype_from_name(dtype)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    hf_model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch_dtype,
+    ).to(device).eval()
+    return hf_model, tokenizer
 
 
 def encode_with_hf_tokenizer(tokenizer, text: str, device: Optional[str] = None) -> torch.Tensor:
@@ -98,6 +166,13 @@ def lens_logits_from_residual(model: HookedTransformer, residual: torch.Tensor) 
     """
     normalized = model.ln_final(residual)
     return model.unembed(normalized)
+
+
+def hf_lens_logits_from_hidden(model, hidden: torch.Tensor, apply_final_ln: bool) -> torch.Tensor:
+    """Project a HF GPT-2 hidden state through final LN and LM head."""
+    if apply_final_ln:
+        hidden = model.transformer.ln_f(hidden)
+    return model.lm_head(hidden)
 
 
 def choose_compare_mode(
@@ -472,6 +547,90 @@ def build_person_form_specs(tokenizer, pairs: Sequence) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def run_person_form_lens_for_spec_hf(
+    model,
+    tokenizer,
+    spec: dict,
+    layers: Optional[Sequence[int]] = None,
+) -> list[dict]:
+    """
+    HF implementation of layer-wise candidate-form scoring.
+
+    HF GPT-2 exposes hidden states for each block boundary. Intermediate layers
+    are projected through the final layer norm and LM head; the final hidden
+    state is already normalized by GPT-2's ``ln_f``.
+    """
+    n_layers = int(model.config.n_layer)
+    layers = list(layers) if layers is not None else list(range(n_layers))
+    device = str(next(model.parameters()).device)
+    input_ids = encode_with_hf_tokenizer(tokenizer, spec["candidate_text"], device=device)
+    sentence_info = analyze_sentence(tokenizer, spec["candidate_text"], None, spec["candidate_form"])
+
+    if sentence_info["verb_pos"] is None or sentence_info["verb_end"] is None:
+        raise ValueError(f"Could not locate candidate form in {spec['candidate_text']!r}")
+
+    token_positions = list(range(sentence_info["verb_pos"], sentence_info["verb_end"] + 1))
+    if any(pos <= 0 for pos in token_positions):
+        raise ValueError(f"Cannot score candidate at position 0: {spec['candidate_text']!r}")
+
+    rows: list[dict] = []
+
+    with torch.no_grad():
+        outputs = model(
+            input_ids,
+            output_hidden_states=True,
+            use_cache=False,
+        )
+        hidden_states = outputs.hidden_states
+
+        for layer in layers:
+            if layer < 0 or layer >= n_layers:
+                raise ValueError(f"Invalid layer={layer} for n_layers={n_layers}")
+            if layer == n_layers - 1:
+                layer_hidden = hidden_states[-1]
+                apply_final_ln = False
+            else:
+                layer_hidden = hidden_states[layer + 1]
+                apply_final_ln = True
+
+            token_log_probs = []
+            token_logits = []
+            token_vocab_ranks = []
+
+            for pos in token_positions:
+                read_pos = pos - 1
+                token_id = int(input_ids[0, pos].item())
+                hidden = layer_hidden[:, read_pos, :]
+                logits = hf_lens_logits_from_hidden(model, hidden, apply_final_ln)[0]
+                log_probs = torch.log_softmax(logits, dim=-1)
+
+                token_log_probs.append(float(log_probs[token_id].item()))
+                token_logits.append(float(logits[token_id].item()))
+                token_vocab_ranks.append(token_rank(logits, token_id))
+
+            first_pos = token_positions[0]
+            first_read_pos = first_pos - 1
+            first_token_id = int(input_ids[0, first_pos].item())
+            first_hidden = layer_hidden[:, first_read_pos, :]
+            first_logits = hf_lens_logits_from_hidden(model, first_hidden, apply_final_ln)[0]
+
+            rows.append({
+                "layer": layer,
+                "sequence_log_prob_sum": sum(token_log_probs),
+                "sequence_log_prob_mean": sum(token_log_probs) / len(token_log_probs),
+                "sequence_logit_sum": sum(token_logits),
+                "sequence_logit_mean": sum(token_logits) / len(token_logits),
+                "token_log_probs": _fmt_list(f"{v:.6f}" for v in token_log_probs),
+                "token_logits": _fmt_list(f"{v:.6f}" for v in token_logits),
+                "token_vocab_ranks": _fmt_list(token_vocab_ranks),
+                "first_token_id": first_token_id,
+                "first_token": decode_token(tokenizer, first_token_id),
+                "first_token_vocab_rank": token_rank(first_logits, first_token_id),
+            })
+
+    return rows
+
+
 def run_person_form_lens_for_spec(
     model: HookedTransformer,
     tokenizer,
@@ -484,6 +643,14 @@ def run_person_form_lens_for_spec(
     Multi-token forms are scored by summing and averaging the layer-wise
     log-probabilities of each token in the candidate form.
     """
+    if not isinstance(model, HookedTransformer):
+        return run_person_form_lens_for_spec_hf(
+            model,
+            tokenizer,
+            spec,
+            layers=layers,
+        )
+
     layers = list(layers) if layers is not None else list(range(model.cfg.n_layers))
     device = str(next(model.parameters()).device)
     input_ids = encode_with_hf_tokenizer(tokenizer, spec["candidate_text"], device=device)

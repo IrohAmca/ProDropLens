@@ -40,6 +40,8 @@ which ones are sensitive to suffix/token continuation.
    - tokenization-matched verb control
    - mixed-token verb control
    - sum-vs-mean scoring sensitivity
+5. Rerun the same context and control margins on configured upper-model
+   checkpoints for model-scale comparison.
 
 ## Main Conditions
 
@@ -83,6 +85,8 @@ context.
 - `phase1_control_*.csv`: final control outputs.
 - `phase1_all_sum_vs_mean_sensitivity*.csv`: scoring sensitivity across main
   conditions and controls.
+- `phase1_model_comparison_*.csv`: cross-model context/control outputs,
+  tokenization summaries, and deltas against the baseline model.
 
 ## Figures
 
@@ -92,6 +96,8 @@ context.
 - `control_person_margin`: `figures/control_person_margin.html`, `figures/control_person_margin.png`
 - `control_final_margin`: `figures/control_final_margin.html`, `figures/control_final_margin.png`
 - `sum_vs_mean_sensitivity`: `figures/sum_vs_mean_sensitivity.html`, `figures/sum_vs_mean_sensitivity.png`
+- `model_comparison_correct_rate`: `figures/model_comparison_correct_rate.html`, `figures/model_comparison_correct_rate.png`
+- `model_comparison_final_margin`: `figures/model_comparison_final_margin.html`, `figures/model_comparison_final_margin.png`
 
 ## Aggregate Context Results
 
@@ -225,6 +231,100 @@ context.
 | possessive_person | 6 | 0.5 | 0.5 | 0.333 | 0.667 | 4 | 2 |
 | prior_predicate_person | 6 | 0.833 | 0.5 | 0.5 | 0.667 | 3 | 2 |
 
+
+## Model Comparison
+
+This section reruns the same Phase 1 context and control candidate-form
+experiments across the baseline model and configured upper-model checkpoints.
+It is meant to test whether the Phase 1 person-margin pattern is stable under
+model scale, or whether conclusions are mostly tokenizer/scoring artifacts.
+
+### Model Comparison Run Status
+
+| model_label | model_name | model_n_layers | model_d_model | model_n_heads | model_n_params | status | error | dtype |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| turkish-gpt2 | ytu-ce-cosmos/turkish-gpt2 | 12.0 | 768.0 | 12.0 | 124439808.0 | completed |  | float16 |
+| turkish-gpt2-medium | ytu-ce-cosmos/turkish-gpt2-medium | 24.0 | 1024.0 | 16.0 | 354823168.0 | completed |  | float16 |
+| turkish-gpt2-large | ytu-ce-cosmos/turkish-gpt2-large |  |  |  |  | failed | OSError('Bu işlemin tamamlanması için disk belleği dosyası çok küçük. (os error 1455)') | float16 |
+
+### Aggregate Results by Model
+
+| model_label | model_n_layers | condition | n_cases | final_correct_rate | ever_positive_rate | mean_final_margin | median_final_margin | median_first_positive_layer |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| turkish-gpt2 | 12 | ambiguous_prodrop | 6 | 0.167 | 0.167 | -0.814 | -0.526 | 0.0 |
+| turkish-gpt2 | 12 | possessive_person | 6 | 0.5 | 0.833 | 0.386 | 0.124 | 6.0 |
+| turkish-gpt2 | 12 | prior_predicate_person | 6 | 0.833 | 0.833 | 0.288 | 0.183 | 2.0 |
+| turkish-gpt2 | 12 | control_mixed_token_dinlenmek | 6 | 0.667 | 0.833 | 0.325 | 0.232 | 9.0 |
+| turkish-gpt2 | 12 | control_token_matched_yapmak | 6 | 0.5 | 0.5 | -0.04 | -0.461 | 1.0 |
+| turkish-gpt2-medium | 24 | ambiguous_prodrop | 6 | 0.167 | 0.5 | -1.162 | -0.894 | 1.0 |
+| turkish-gpt2-medium | 24 | possessive_person | 6 | 0.5 | 1.0 | 0.836 | 0.509 | 16.5 |
+| turkish-gpt2-medium | 24 | prior_predicate_person | 6 | 0.5 | 0.833 | 0.421 | 0.169 | 20.0 |
+| turkish-gpt2-medium | 24 | control_mixed_token_dinlenmek | 6 | 0.667 | 0.833 | 0.221 | 0.193 | 4.0 |
+| turkish-gpt2-medium | 24 | control_token_matched_yapmak | 6 | 0.667 | 1.0 | 1.321 | 1.402 | 20.0 |
+
+### Delta vs. Baseline
+
+Positive deltas mean the upper model improved over the baseline for that
+condition; negative deltas mean it regressed.
+
+| model_label | condition | final_correct_rate | baseline_final_correct_rate | delta_final_correct_rate | mean_final_margin | baseline_mean_final_margin | delta_mean_final_margin |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| turkish-gpt2-medium | ambiguous_prodrop | 0.167 | 0.167 | 0.0 | -1.162 | -0.814 | -0.348 |
+| turkish-gpt2-medium | control_mixed_token_dinlenmek | 0.667 | 0.667 | 0.0 | 0.221 | 0.325 | -0.104 |
+| turkish-gpt2-medium | control_token_matched_yapmak | 0.667 | 0.5 | 0.167 | 1.321 | -0.04 | 1.361 |
+| turkish-gpt2-medium | possessive_person | 0.5 | 0.5 | 0.0 | 0.836 | 0.386 | 0.45 |
+| turkish-gpt2-medium | prior_predicate_person | 0.5 | 0.833 | -0.333 | 0.421 | 0.288 | 0.133 |
+
+### Model Comparison Notes
+
+- Completed models have the same tokenizer split profile for these Phase 1 candidates; observed changes are model-scale effects, not tokenizer-boundary fixes.
+- `turkish-gpt2-medium` improves final correctness in `control_token_matched_yapmak`.
+- `turkish-gpt2-medium` regresses final correctness in `prior_predicate_person`.
+- `turkish-gpt2-medium` keeps final correctness unchanged but strengthens mean margin in `possessive_person`.
+- `turkish-gpt2-medium` keeps final correctness unchanged but weakens mean margin in `ambiguous_prodrop`.
+- `turkish-gpt2-large` did not complete on this machine: OSError('Bu işlemin tamamlanması için disk belleği dosyası çok küçük. (os error 1455)').
+
+### Tokenization by Model
+
+| model_label | condition | candidate_type | count | mean_candidate_n_tokens |
+| --- | --- | --- | --- | --- |
+| turkish-gpt2 | ambiguous_prodrop | A_merged | 4 | 1.333 |
+| turkish-gpt2 | ambiguous_prodrop | B_suffix_split | 2 | 1.333 |
+| turkish-gpt2 | control_mixed_token_dinlenmek | B_suffix_split | 2 | 2.333 |
+| turkish-gpt2 | control_mixed_token_dinlenmek | C_multi_split | 4 | 2.333 |
+| turkish-gpt2 | control_token_matched_yapmak | A_merged | 6 | 1.0 |
+| turkish-gpt2 | possessive_person | A_merged | 2 | 1.667 |
+| turkish-gpt2 | possessive_person | B_suffix_split | 2 | 1.667 |
+| turkish-gpt2 | possessive_person | C_multi_split | 2 | 1.667 |
+| turkish-gpt2 | prior_predicate_person | B_suffix_split | 2 | 2.333 |
+| turkish-gpt2 | prior_predicate_person | C_multi_split | 4 | 2.333 |
+| turkish-gpt2-medium | ambiguous_prodrop | A_merged | 4 | 1.333 |
+| turkish-gpt2-medium | ambiguous_prodrop | B_suffix_split | 2 | 1.333 |
+| turkish-gpt2-medium | control_mixed_token_dinlenmek | B_suffix_split | 2 | 2.333 |
+| turkish-gpt2-medium | control_mixed_token_dinlenmek | C_multi_split | 4 | 2.333 |
+| turkish-gpt2-medium | control_token_matched_yapmak | A_merged | 6 | 1.0 |
+| turkish-gpt2-medium | possessive_person | A_merged | 2 | 1.667 |
+| turkish-gpt2-medium | possessive_person | B_suffix_split | 2 | 1.667 |
+| turkish-gpt2-medium | possessive_person | C_multi_split | 2 | 1.667 |
+| turkish-gpt2-medium | prior_predicate_person | B_suffix_split | 2 | 2.333 |
+| turkish-gpt2-medium | prior_predicate_person | C_multi_split | 4 | 2.333 |
+
+### Sum vs. Mean Sensitivity by Model
+
+| model_label | condition | mean_final_correct_rate | sum_final_correct_rate | selection_agreement_rate | correctness_agreement_rate |
+| --- | --- | --- | --- | --- | --- |
+| turkish-gpt2 | ambiguous_prodrop | 0.167 | 0.167 | 0.0 | 0.667 |
+| turkish-gpt2 | control_mixed_token_dinlenmek | 0.667 | 0.667 | 0.333 | 0.333 |
+| turkish-gpt2 | control_token_matched_yapmak | 0.5 | 0.5 | 1.0 | 1.0 |
+| turkish-gpt2 | possessive_person | 0.5 | 0.5 | 0.333 | 0.667 |
+| turkish-gpt2 | prior_predicate_person | 0.833 | 0.5 | 0.5 | 0.667 |
+| turkish-gpt2-medium | ambiguous_prodrop | 0.167 | 0.167 | 0.0 | 0.667 |
+| turkish-gpt2-medium | control_mixed_token_dinlenmek | 0.667 | 0.5 | 0.333 | 0.5 |
+| turkish-gpt2-medium | control_token_matched_yapmak | 0.667 | 0.667 | 1.0 | 1.0 |
+| turkish-gpt2-medium | possessive_person | 0.5 | 0.5 | 0.667 | 0.667 |
+| turkish-gpt2-medium | prior_predicate_person | 0.5 | 0.5 | 0.333 | 0.333 |
+
+
 ## Interpretation
 
 - `ambiguous_prodrop` should not be expected to select every target person:
@@ -241,3 +341,7 @@ context.
   disappears under `sum`, or only appears for mixed-token forms, the claim is
   tokenization-sensitive and should not be used as direct evidence of an
   abstract subject/person mechanism.
+- Model-scale differences matter only when they change the condition-level
+  correctness or margin pattern while leaving the tokenizer/scoring controls
+  interpretable. If the tokenizer split profile stays the same, improved
+  margins are model-capacity evidence, not a tokenizer fix.

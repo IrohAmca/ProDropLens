@@ -1,0 +1,11 @@
+model_label,model_name,model_n_layers,model_d_model,model_n_heads,model_n_params,condition,n_cases,n_final_correct,final_correct_rate,n_ever_positive_margin,ever_positive_rate,mean_final_margin,median_final_margin,median_first_positive_layer
+turkish-gpt2,ytu-ce-cosmos/turkish-gpt2,12,768,12,124439808,ambiguous_prodrop,6,1,0.16666666666666666,1,0.16666666666666666,-0.81396484375,-0.52587890625,0.0
+turkish-gpt2,ytu-ce-cosmos/turkish-gpt2,12,768,12,124439808,possessive_person,6,3,0.5,5,0.8333333333333334,0.38604736328125,0.12371826171875,6.0
+turkish-gpt2,ytu-ce-cosmos/turkish-gpt2,12,768,12,124439808,prior_predicate_person,6,5,0.8333333333333334,5,0.8333333333333334,0.2880859375,0.18326822916666652,2.0
+turkish-gpt2,ytu-ce-cosmos/turkish-gpt2,12,768,12,124439808,control_mixed_token_dinlenmek,6,4,0.6666666666666666,5,0.8333333333333334,0.3250054253472223,0.23193359375,9.0
+turkish-gpt2,ytu-ce-cosmos/turkish-gpt2,12,768,12,124439808,control_token_matched_yapmak,6,3,0.5,3,0.5,-0.040364583333333336,-0.4609375,1.0
+turkish-gpt2-medium,ytu-ce-cosmos/turkish-gpt2-medium,24,1024,16,354823168,ambiguous_prodrop,6,1,0.16666666666666666,3,0.5,-1.1624348958333333,-0.8935546875,1.0
+turkish-gpt2-medium,ytu-ce-cosmos/turkish-gpt2-medium,24,1024,16,354823168,possessive_person,6,3,0.5,6,1.0,0.8362986246744791,0.5087127685546875,16.5
+turkish-gpt2-medium,ytu-ce-cosmos/turkish-gpt2-medium,24,1024,16,354823168,prior_predicate_person,6,3,0.5,5,0.8333333333333334,0.42142740885416674,0.16943359375,20.0
+turkish-gpt2-medium,ytu-ce-cosmos/turkish-gpt2-medium,24,1024,16,354823168,control_mixed_token_dinlenmek,6,4,0.6666666666666666,5,0.8333333333333334,0.22134060329861116,0.19319661458333348,4.0
+turkish-gpt2-medium,ytu-ce-cosmos/turkish-gpt2-medium,24,1024,16,354823168,control_token_matched_yapmak,6,4,0.6666666666666666,6,1.0,1.3209635416666667,1.40234375,20.0

@@ -1,0 +1,109 @@
+condition,actual_person,candidate_person,candidate_form,candidate_type,candidate_tokens,candidate_token_ids,candidate_read_positions
+ambiguous_prodrop,1s,1s,gidiyorum,A_merged,gidiyorum,23301,2
+ambiguous_prodrop,1s,2s,gidiyorsun,B_suffix_split,gidiyor | sun,6215 | 833,2 | 3
+ambiguous_prodrop,1s,3s,gidiyor,A_merged,gidiyor,6215,2
+ambiguous_prodrop,1s,1p,gidiyoruz,A_merged,gidiyoruz,19015,2
+ambiguous_prodrop,1s,2p,gidiyorsunuz,B_suffix_split,gidiyor | sunuz,6215 | 1711,2 | 3
+ambiguous_prodrop,1s,3p,gidiyorlar,A_merged,gidiyorlar,41311,2
+ambiguous_prodrop,2s,1s,gidiyorum,A_merged,gidiyorum,23301,2
+ambiguous_prodrop,2s,2s,gidiyorsun,B_suffix_split,gidiyor | sun,6215 | 833,2 | 3
+ambiguous_prodrop,2s,3s,gidiyor,A_merged,gidiyor,6215,2
+ambiguous_prodrop,2s,1p,gidiyoruz,A_merged,gidiyoruz,19015,2
+ambiguous_prodrop,2s,2p,gidiyorsunuz,B_suffix_split,gidiyor | sunuz,6215 | 1711,2 | 3
+ambiguous_prodrop,2s,3p,gidiyorlar,A_merged,gidiyorlar,41311,2
+ambiguous_prodrop,3s,1s,gidiyorum,A_merged,gidiyorum,23301,2
+ambiguous_prodrop,3s,2s,gidiyorsun,B_suffix_split,gidiyor | sun,6215 | 833,2 | 3
+ambiguous_prodrop,3s,3s,gidiyor,A_merged,gidiyor,6215,2
+ambiguous_prodrop,3s,1p,gidiyoruz,A_merged,gidiyoruz,19015,2
+ambiguous_prodrop,3s,2p,gidiyorsunuz,B_suffix_split,gidiyor | sunuz,6215 | 1711,2 | 3
+ambiguous_prodrop,3s,3p,gidiyorlar,A_merged,gidiyorlar,41311,2
+ambiguous_prodrop,1p,1s,gidiyorum,A_merged,gidiyorum,23301,2
+ambiguous_prodrop,1p,2s,gidiyorsun,B_suffix_split,gidiyor | sun,6215 | 833,2 | 3
+ambiguous_prodrop,1p,3s,gidiyor,A_merged,gidiyor,6215,2
+ambiguous_prodrop,1p,1p,gidiyoruz,A_merged,gidiyoruz,19015,2
+ambiguous_prodrop,1p,2p,gidiyorsunuz,B_suffix_split,gidiyor | sunuz,6215 | 1711,2 | 3
+ambiguous_prodrop,1p,3p,gidiyorlar,A_merged,gidiyorlar,41311,2
+ambiguous_prodrop,2p,1s,gidiyorum,A_merged,gidiyorum,23301,2
+ambiguous_prodrop,2p,2s,gidiyorsun,B_suffix_split,gidiyor | sun,6215 | 833,2 | 3
+ambiguous_prodrop,2p,3s,gidiyor,A_merged,gidiyor,6215,2
+ambiguous_prodrop,2p,1p,gidiyoruz,A_merged,gidiyoruz,19015,2
+ambiguous_prodrop,2p,2p,gidiyorsunuz,B_suffix_split,gidiyor | sunuz,6215 | 1711,2 | 3
+ambiguous_prodrop,2p,3p,gidiyorlar,A_merged,gidiyorlar,41311,2
+ambiguous_prodrop,3p,1s,gidiyorum,A_merged,gidiyorum,23301,2
+ambiguous_prodrop,3p,2s,gidiyorsun,B_suffix_split,gidiyor | sun,6215 | 833,2 | 3
+ambiguous_prodrop,3p,3s,gidiyor,A_merged,gidiyor,6215,2
+ambiguous_prodrop,3p,1p,gidiyoruz,A_merged,gidiyoruz,19015,2
+ambiguous_prodrop,3p,2p,gidiyorsunuz,B_suffix_split,gidiyor | sunuz,6215 | 1711,2 | 3
+ambiguous_prodrop,3p,3p,gidiyorlar,A_merged,gidiyorlar,41311,2
+prior_predicate_person,1s,1s,dinleniyorum,C_multi_split,dinlen | iyorum,10316 | 1066,4 | 5
+prior_predicate_person,1s,2s,dinleniyorsun,B_suffix_split,din | leniyor | sun,1527 | 6567 | 833,4 | 5 | 6
+prior_predicate_person,1s,3s,dinleniyor,C_multi_split,din | leniyor,1527 | 6567,4 | 5
+prior_predicate_person,1s,1p,dinleniyoruz,C_multi_split,dinlen | iyoruz,10316 | 1158,4 | 5
+prior_predicate_person,1s,2p,dinleniyorsunuz,B_suffix_split,din | leniyor | sunuz,1527 | 6567 | 1711,4 | 5 | 6
+prior_predicate_person,1s,3p,dinleniyorlar,C_multi_split,dinlen | iyorlar,10316 | 4880,4 | 5
+prior_predicate_person,2s,1s,dinleniyorum,C_multi_split,dinlen | iyorum,10316 | 1066,4 | 5
+prior_predicate_person,2s,2s,dinleniyorsun,B_suffix_split,din | leniyor | sun,1527 | 6567 | 833,4 | 5 | 6
+prior_predicate_person,2s,3s,dinleniyor,C_multi_split,din | leniyor,1527 | 6567,4 | 5
+prior_predicate_person,2s,1p,dinleniyoruz,C_multi_split,dinlen | iyoruz,10316 | 1158,4 | 5
+prior_predicate_person,2s,2p,dinleniyorsunuz,B_suffix_split,din | leniyor | sunuz,1527 | 6567 | 1711,4 | 5 | 6
+prior_predicate_person,2s,3p,dinleniyorlar,C_multi_split,dinlen | iyorlar,10316 | 4880,4 | 5
+prior_predicate_person,3s,1s,dinleniyorum,C_multi_split,dinlen | iyorum,10316 | 1066,4 | 5
+prior_predicate_person,3s,2s,dinleniyorsun,B_suffix_split,din | leniyor | sun,1527 | 6567 | 833,4 | 5 | 6
+prior_predicate_person,3s,3s,dinleniyor,C_multi_split,din | leniyor,1527 | 6567,4 | 5
+prior_predicate_person,3s,1p,dinleniyoruz,C_multi_split,dinlen | iyoruz,10316 | 1158,4 | 5
+prior_predicate_person,3s,2p,dinleniyorsunuz,B_suffix_split,din | leniyor | sunuz,1527 | 6567 | 1711,4 | 5 | 6
+prior_predicate_person,3s,3p,dinleniyorlar,C_multi_split,dinlen | iyorlar,10316 | 4880,4 | 5
+prior_predicate_person,1p,1s,dinleniyorum,C_multi_split,dinlen | iyorum,10316 | 1066,4 | 5
+prior_predicate_person,1p,2s,dinleniyorsun,B_suffix_split,din | leniyor | sun,1527 | 6567 | 833,4 | 5 | 6
+prior_predicate_person,1p,3s,dinleniyor,C_multi_split,din | leniyor,1527 | 6567,4 | 5
+prior_predicate_person,1p,1p,dinleniyoruz,C_multi_split,dinlen | iyoruz,10316 | 1158,4 | 5
+prior_predicate_person,1p,2p,dinleniyorsunuz,B_suffix_split,din | leniyor | sunuz,1527 | 6567 | 1711,4 | 5 | 6
+prior_predicate_person,1p,3p,dinleniyorlar,C_multi_split,dinlen | iyorlar,10316 | 4880,4 | 5
+prior_predicate_person,2p,1s,dinleniyorum,C_multi_split,dinlen | iyorum,10316 | 1066,4 | 5
+prior_predicate_person,2p,2s,dinleniyorsun,B_suffix_split,din | leniyor | sun,1527 | 6567 | 833,4 | 5 | 6
+prior_predicate_person,2p,3s,dinleniyor,C_multi_split,din | leniyor,1527 | 6567,4 | 5
+prior_predicate_person,2p,1p,dinleniyoruz,C_multi_split,dinlen | iyoruz,10316 | 1158,4 | 5
+prior_predicate_person,2p,2p,dinleniyorsunuz,B_suffix_split,din | leniyor | sunuz,1527 | 6567 | 1711,4 | 5 | 6
+prior_predicate_person,2p,3p,dinleniyorlar,C_multi_split,dinlen | iyorlar,10316 | 4880,4 | 5
+prior_predicate_person,3p,1s,dinleniyorum,C_multi_split,dinlen | iyorum,10316 | 1066,4 | 5
+prior_predicate_person,3p,2s,dinleniyorsun,B_suffix_split,din | leniyor | sun,1527 | 6567 | 833,4 | 5 | 6
+prior_predicate_person,3p,3s,dinleniyor,C_multi_split,din | leniyor,1527 | 6567,4 | 5
+prior_predicate_person,3p,1p,dinleniyoruz,C_multi_split,dinlen | iyoruz,10316 | 1158,4 | 5
+prior_predicate_person,3p,2p,dinleniyorsunuz,B_suffix_split,din | leniyor | sunuz,1527 | 6567 | 1711,4 | 5 | 6
+prior_predicate_person,3p,3p,dinleniyorlar,C_multi_split,dinlen | iyorlar,10316 | 4880,4 | 5
+possessive_person,1s,1s,çıkıyorum,C_multi_split,çık | ıyorum,573 | 1605,6 | 7
+possessive_person,1s,2s,çıkıyorsun,B_suffix_split,çıkıyor | sun,4654 | 833,6 | 7
+possessive_person,1s,3s,çıkıyor,A_merged,çıkıyor,4654,6
+possessive_person,1s,1p,çıkıyoruz,A_merged,çıkıyoruz,31917,6
+possessive_person,1s,2p,çıkıyorsunuz,B_suffix_split,çıkıyor | sunuz,4654 | 1711,6 | 7
+possessive_person,1s,3p,çıkıyorlar,C_multi_split,çık | ıyorlar,573 | 2876,6 | 7
+possessive_person,2s,1s,çıkıyorum,C_multi_split,çık | ıyorum,573 | 1605,5 | 6
+possessive_person,2s,2s,çıkıyorsun,B_suffix_split,çıkıyor | sun,4654 | 833,5 | 6
+possessive_person,2s,3s,çıkıyor,A_merged,çıkıyor,4654,5
+possessive_person,2s,1p,çıkıyoruz,A_merged,çıkıyoruz,31917,5
+possessive_person,2s,2p,çıkıyorsunuz,B_suffix_split,çıkıyor | sunuz,4654 | 1711,5 | 6
+possessive_person,2s,3p,çıkıyorlar,C_multi_split,çık | ıyorlar,573 | 2876,5 | 6
+possessive_person,3s,1s,çıkıyorum,C_multi_split,çık | ıyorum,573 | 1605,6 | 7
+possessive_person,3s,2s,çıkıyorsun,B_suffix_split,çıkıyor | sun,4654 | 833,6 | 7
+possessive_person,3s,3s,çıkıyor,A_merged,çıkıyor,4654,6
+possessive_person,3s,1p,çıkıyoruz,A_merged,çıkıyoruz,31917,6
+possessive_person,3s,2p,çıkıyorsunuz,B_suffix_split,çıkıyor | sunuz,4654 | 1711,6 | 7
+possessive_person,3s,3p,çıkıyorlar,C_multi_split,çık | ıyorlar,573 | 2876,6 | 7
+possessive_person,1p,1s,çıkıyorum,C_multi_split,çık | ıyorum,573 | 1605,6 | 7
+possessive_person,1p,2s,çıkıyorsun,B_suffix_split,çıkıyor | sun,4654 | 833,6 | 7
+possessive_person,1p,3s,çıkıyor,A_merged,çıkıyor,4654,6
+possessive_person,1p,1p,çıkıyoruz,A_merged,çıkıyoruz,31917,6
+possessive_person,1p,2p,çıkıyorsunuz,B_suffix_split,çıkıyor | sunuz,4654 | 1711,6 | 7
+possessive_person,1p,3p,çıkıyorlar,C_multi_split,çık | ıyorlar,573 | 2876,6 | 7
+possessive_person,2p,1s,çıkıyorum,C_multi_split,çık | ıyorum,573 | 1605,5 | 6
+possessive_person,2p,2s,çıkıyorsun,B_suffix_split,çıkıyor | sun,4654 | 833,5 | 6
+possessive_person,2p,3s,çıkıyor,A_merged,çıkıyor,4654,5
+possessive_person,2p,1p,çıkıyoruz,A_merged,çıkıyoruz,31917,5
+possessive_person,2p,2p,çıkıyorsunuz,B_suffix_split,çıkıyor | sunuz,4654 | 1711,5 | 6
+possessive_person,2p,3p,çıkıyorlar,C_multi_split,çık | ıyorlar,573 | 2876,5 | 6
+possessive_person,3p,1s,çıkıyorum,C_multi_split,çık | ıyorum,573 | 1605,6 | 7
+possessive_person,3p,2s,çıkıyorsun,B_suffix_split,çıkıyor | sun,4654 | 833,6 | 7
+possessive_person,3p,3s,çıkıyor,A_merged,çıkıyor,4654,6
+possessive_person,3p,1p,çıkıyoruz,A_merged,çıkıyoruz,31917,6
+possessive_person,3p,2p,çıkıyorsunuz,B_suffix_split,çıkıyor | sunuz,4654 | 1711,6 | 7
+possessive_person,3p,3p,çıkıyorlar,C_multi_split,çık | ıyorlar,573 | 2876,6 | 7

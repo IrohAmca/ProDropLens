@@ -1,0 +1,4 @@
+condition,n_cases,n_final_correct,final_correct_rate,n_ever_positive_margin,ever_positive_rate,mean_final_margin,median_final_margin,median_first_positive_layer
+ambiguous_prodrop,6,1,0.16666666666666666,1,0.16666666666666666,-0.8137069543202718,-0.5276429653167725,0.0
+possessive_person,6,3,0.5,5,0.8333333333333334,0.3852592756350835,0.12036438286304474,6.0
+prior_predicate_person,6,5,0.8333333333333334,5,0.8333333333333334,0.2892664836512673,0.18487465381622314,2.0

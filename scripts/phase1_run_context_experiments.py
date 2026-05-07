@@ -123,6 +123,23 @@ def prepare_phase0_reference() -> dict[str, pd.DataFrame]:
 
 This folder contains the tokenizer-discovery outputs used by Phase 1.
 
+## Why This Matters
+
+Turkish person/agreement information is not represented with a consistent token
+boundary in `ytu-ce-cosmos/turkish-gpt2`. Some inflected verbs are one merged
+token, some split the person suffix into a separate token, and some split at a
+non-morphological boundary. This means a raw target-token rank can mix at least
+three effects:
+
+- actual subject/person information,
+- lexical continuation from the preceding verb fragment,
+- tokenizer length and boundary advantages.
+
+Phase 1 therefore treats Phase 0 as a required reference table rather than a
+preprocessing detail. Person-form comparisons are reported with tokenization
+type, token IDs, read positions, and both token-normalized (`mean`) and total
+sequence (`sum`) scoring controls.
+
 ## Files
 
 - `phase0_verb_classification.csv`: tokenization type for each verb/person/tense form.
@@ -135,6 +152,19 @@ This folder contains the tokenizer-discovery outputs used by Phase 1.
 ## Tokenization Type Summary
 
 {markdown_table(type_summary.assign(share=type_summary["share"].round(3)))}
+
+## Tokenization Types and Consequences
+
+| type | Meaning | Consequence |
+| --- | --- | --- |
+| `A_merged` | Whole inflected form is one token, e.g. `gidiyorum`. | Clean single-token rank/logit comparison is possible, but person information is lexicalized inside one token. |
+| `B_suffix_split` | Verb stem/tense and person suffix split, e.g. `gidiyor | sun`. | Suffix rank can look good very early because it may be a local continuation from the previous token, not necessarily subject reasoning. |
+| `C_multi_split` | The form splits across a less clean boundary, e.g. `dinlen | iyorum` or `git | tin`. | Full-form sequence scoring is required; single-token interpretations are unsafe. |
+
+The main risk is comparing forms with different token counts. Sum scoring
+penalizes longer forms because every extra token adds another probability term.
+Mean scoring reduces that length penalty, but it can over-reward forms with an
+easy suffix token. Phase 1 keeps both views in the final controls.
 
 ## Pilot Position Reference
 

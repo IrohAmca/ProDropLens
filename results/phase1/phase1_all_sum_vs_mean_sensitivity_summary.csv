@@ -1,0 +1,6 @@
+condition,n_cases,mean_final_correct_rate,sum_final_correct_rate,selection_agreement_rate,correctness_agreement_rate,n_selection_disagreements,n_correctness_disagreements
+ambiguous_prodrop,6,0.16666666666666666,0.16666666666666666,0.0,0.6666666666666666,6,2
+control_mixed_token_dinlenmek,6,0.6666666666666666,0.6666666666666666,0.3333333333333333,0.3333333333333333,4,4
+control_token_matched_yapmak,6,0.5,0.5,1.0,1.0,0,0
+possessive_person,6,0.5,0.5,0.3333333333333333,0.6666666666666666,4,2
+prior_predicate_person,6,0.8333333333333334,0.5,0.5,0.6666666666666666,3,2

@@ -1,0 +1,4 @@
+condition,candidate_type,count,mean_candidate_n_tokens
+control_mixed_token_dinlenmek,B_suffix_split,2,2.3333333333333335
+control_mixed_token_dinlenmek,C_multi_split,4,2.3333333333333335
+control_token_matched_yapmak,A_merged,6,1.0

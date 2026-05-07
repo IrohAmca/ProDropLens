@@ -1,0 +1,8 @@
+condition,candidate_type,count,mean_candidate_n_tokens
+ambiguous_prodrop,A_merged,4,1.3333333333333333
+ambiguous_prodrop,B_suffix_split,2,1.3333333333333333
+possessive_person,A_merged,2,1.6666666666666667
+possessive_person,B_suffix_split,2,1.6666666666666667
+possessive_person,C_multi_split,2,1.6666666666666667
+prior_predicate_person,B_suffix_split,2,2.3333333333333335
+prior_predicate_person,C_multi_split,4,2.3333333333333335

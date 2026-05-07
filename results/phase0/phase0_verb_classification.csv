@@ -1,0 +1,73 @@
+verb,tense,person,form,type,n_tokens,tokens,suffix_token
+gitmek,simdiki,1s,gidiyorum,A_merged,1,gidiyorum,-
+gitmek,simdiki,2s,gidiyorsun,B_suffix_split,2,gidiyor | sun,sun
+gitmek,simdiki,3s,gidiyor,A_merged,1,gidiyor,-
+gitmek,simdiki,1p,gidiyoruz,A_merged,1,gidiyoruz,-
+gitmek,simdiki,2p,gidiyorsunuz,B_suffix_split,2,gidiyor | sunuz,sunuz
+gitmek,simdiki,3p,gidiyorlar,A_merged,1,gidiyorlar,-
+gitmek,gecmis,1s,gittim,A_merged,1,gittim,-
+gitmek,gecmis,2s,gittin,C_multi_split,2,git | tin,-
+gitmek,gecmis,3s,gitti,A_merged,1,gitti,-
+gitmek,gecmis,1p,gittik,A_merged,1,gittik,-
+gitmek,gecmis,2p,gittiniz,C_multi_split,2,git | tiniz,-
+gitmek,gecmis,3p,gittiler,A_merged,1,gittiler,-
+gitmek,gelecek,1s,gideceğim,A_merged,1,gideceğim,-
+gitmek,gelecek,2s,gideceksin,B_suffix_split,2,gidecek | sin,sin
+gitmek,gelecek,3s,gidecek,A_merged,1,gidecek,-
+gitmek,gelecek,1p,gideceğiz,A_merged,1,gideceğiz,-
+gitmek,gelecek,2p,gideceksiniz,B_suffix_split,2,gidecek | siniz,siniz
+gitmek,gelecek,3p,gidecekler,B_suffix_split,2,gidecek | ler,ler
+gitmek,genis,1s,giderim,A_merged,1,giderim,-
+gitmek,genis,2s,gidersin,C_multi_split,2,gid | ersin,-
+gitmek,genis,3s,gider,A_merged,1,gider,-
+gitmek,genis,1p,gideriz,B_suffix_split,2,gider | iz,iz
+gitmek,genis,2p,gidersiniz,C_multi_split,2,gid | ersiniz,-
+gitmek,genis,3p,giderler,A_merged,1,giderler,-
+gelmek,simdiki,1s,geliyorum,A_merged,1,geliyorum,-
+gelmek,simdiki,2s,geliyorsun,B_suffix_split,2,geliyor | sun,sun
+gelmek,simdiki,3s,geliyor,A_merged,1,geliyor,-
+gelmek,simdiki,1p,geliyoruz,A_merged,1,geliyoruz,-
+gelmek,simdiki,2p,geliyorsunuz,B_suffix_split,2,geliyor | sunuz,sunuz
+gelmek,simdiki,3p,geliyorlar,A_merged,1,geliyorlar,-
+gelmek,gecmis,1s,geldim,A_merged,1,geldim,-
+gelmek,gecmis,2s,geldin,A_merged,1,geldin,-
+gelmek,gecmis,3s,geldi,A_merged,1,geldi,-
+gelmek,gecmis,1p,geldik,A_merged,1,geldik,-
+gelmek,gecmis,2p,geldiniz,A_merged,1,geldiniz,-
+gelmek,gecmis,3p,geldiler,A_merged,1,geldiler,-
+gelmek,gelecek,1s,geleceğim,C_multi_split,2,gel | eceğim,-
+gelmek,gelecek,2s,geleceksin,B_suffix_split,2,gelecek | sin,sin
+gelmek,gelecek,3s,gelecek,A_merged,1,gelecek,-
+gelmek,gelecek,1p,geleceğiz,A_merged,1,geleceğiz,-
+gelmek,gelecek,2p,geleceksiniz,B_suffix_split,2,gelecek | siniz,siniz
+gelmek,gelecek,3p,gelecekler,B_suffix_split,2,gelecek | ler,ler
+gelmek,genis,1s,gelirim,B_suffix_split,2,gelir | im,im
+gelmek,genis,2s,gelirsin,B_suffix_split,2,gelir | sin,sin
+gelmek,genis,3s,gelir,A_merged,1,gelir,-
+gelmek,genis,1p,geliriz,B_suffix_split,2,gelir | iz,iz
+gelmek,genis,2p,gelirsiniz,B_suffix_split,2,gelir | siniz,siniz
+gelmek,genis,3p,gelirler,A_merged,1,gelirler,-
+yapmak,simdiki,1s,yapıyorum,A_merged,1,yapıyorum,-
+yapmak,simdiki,2s,yapıyorsun,A_merged,1,yapıyorsun,-
+yapmak,simdiki,3s,yapıyor,A_merged,1,yapıyor,-
+yapmak,simdiki,1p,yapıyoruz,A_merged,1,yapıyoruz,-
+yapmak,simdiki,2p,yapıyorsunuz,A_merged,1,yapıyorsunuz,-
+yapmak,simdiki,3p,yapıyorlar,A_merged,1,yapıyorlar,-
+yapmak,gecmis,1s,yaptım,A_merged,1,yaptım,-
+yapmak,gecmis,2s,yaptın,A_merged,1,yaptın,-
+yapmak,gecmis,3s,yaptı,A_merged,1,yaptı,-
+yapmak,gecmis,1p,yaptık,A_merged,1,yaptık,-
+yapmak,gecmis,2p,yaptınız,A_merged,1,yaptınız,-
+yapmak,gecmis,3p,yaptılar,A_merged,1,yaptılar,-
+yapmak,gelecek,1s,yapacağım,A_merged,1,yapacağım,-
+yapmak,gelecek,2s,yapacaksın,A_merged,1,yapacaksın,-
+yapmak,gelecek,3s,yapacak,A_merged,1,yapacak,-
+yapmak,gelecek,1p,yapacağız,A_merged,1,yapacağız,-
+yapmak,gelecek,2p,yapacaksınız,A_merged,1,yapacaksınız,-
+yapmak,gelecek,3p,yapacaklar,A_merged,1,yapacaklar,-
+yapmak,genis,1s,yaparım,A_merged,1,yaparım,-
+yapmak,genis,2s,yaparsın,A_merged,1,yaparsın,-
+yapmak,genis,3s,yapar,A_merged,1,yapar,-
+yapmak,genis,1p,yaparız,A_merged,1,yaparız,-
+yapmak,genis,2p,yaparsınız,A_merged,1,yaparsınız,-
+yapmak,genis,3p,yaparlar,A_merged,1,yaparlar,-

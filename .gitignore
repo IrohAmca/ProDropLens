@@ -79,7 +79,11 @@ target/
 .ipynb_checkpoints
 
 # Generated analysis outputs
-results/
+results/*
+!results/phase0/
+!results/phase0/**
+!results/phase1/
+!results/phase1/**
 
 # IPython
 profile_default/

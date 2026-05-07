@@ -7,7 +7,7 @@ functions instead of duplicating computation logic.
 KEY INSIGHT FROM PHASE 0:
   turkish-gpt2 tokenizer splits verb forms into multiple tokens.
   For example:
-    "gidiyorum"    -> [" gid", "iyorum"]       (2 tokens, suffix merged)
+    "gidiyorum"    -> [" gidiyorum"]           (1 token, suffix merged)
     "gidiyorsun"   -> [" gidiyor", "sun"]       (2 tokens, suffix separate)
     "gidiyorsunuz" -> [" gidiyor", "sunuz"]     (2 tokens, suffix separate)
 
@@ -59,8 +59,35 @@ class VerbSpan:
 
     @property
     def last_pos(self) -> int:
-        """Position of the last verb token (where logits should be read)."""
+        """Position of the last verb token in the already-tokenized sentence."""
         return self.end
+
+    @property
+    def first_token_read_pos(self) -> Optional[int]:
+        """Causal-LM logit position that predicts the first verb token."""
+        return self.start - 1 if self.start > 0 else None
+
+    @property
+    def primary_probe_pos(self) -> int:
+        """
+        Main token position to inspect for person information.
+
+        If the person suffix is split, inspect the suffix token. Otherwise
+        inspect the last token in the verb span.
+        """
+        if self.suffix_split and self.suffix_pos is not None:
+            return self.suffix_pos
+        return self.end
+
+    @property
+    def primary_read_pos(self) -> Optional[int]:
+        """Causal-LM logit position that predicts primary_probe_pos."""
+        return self.primary_probe_pos - 1 if self.primary_probe_pos > 0 else None
+
+    @property
+    def token_read_positions(self) -> list[Optional[int]]:
+        """Causal-LM logit positions for each token in the verb span."""
+        return [pos - 1 if pos > 0 else None for pos in range(self.start, self.end + 1)]
 
 
 # ── Tokenizer analysis functions ─────────────────────────────────────────────
@@ -306,6 +333,10 @@ def analyze_sentence(
           "verb_end":    int (end of verb) or None,
           "suffix_split": bool,
           "suffix_pos":  int or None,
+          "primary_probe_pos": token carrying the main person signal,
+          "primary_read_pos":  logit position that predicts primary_probe_pos,
+          "first_token_read_pos": logit position that predicts verb_pos,
+          "verb_token_read_positions": logit positions for each verb token,
           "token_table": [(pos, id, str), ...],
         }
     """
@@ -320,6 +351,10 @@ def analyze_sentence(
     verb_end = None
     suffix_split = False
     suffix_pos = None
+    primary_probe_pos = None
+    primary_read_pos = None
+    first_token_read_pos = None
+    verb_token_read_positions = []
 
     if verb_form:
         verb_span = find_verb_span(tokenizer, token_ids, token_strs, verb_form)
@@ -328,6 +363,10 @@ def analyze_sentence(
             verb_end = verb_span.end
             suffix_split = verb_span.suffix_split
             suffix_pos = verb_span.suffix_pos
+            primary_probe_pos = verb_span.primary_probe_pos
+            primary_read_pos = verb_span.primary_read_pos
+            first_token_read_pos = verb_span.first_token_read_pos
+            verb_token_read_positions = verb_span.token_read_positions
 
     token_table = [
         (i, id_, s)
@@ -342,6 +381,10 @@ def analyze_sentence(
         "verb_end":     verb_end,
         "suffix_split": suffix_split,
         "suffix_pos":   suffix_pos,
+        "primary_probe_pos": primary_probe_pos,
+        "primary_read_pos":  primary_read_pos,
+        "first_token_read_pos": first_token_read_pos,
+        "verb_token_read_positions": verb_token_read_positions,
         "token_table":  token_table,
     }
 
